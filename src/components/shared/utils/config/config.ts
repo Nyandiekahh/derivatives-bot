@@ -182,26 +182,29 @@ export const generateOAuthURL = () => {
         date_first_contact ? `&date_first_contact=${date_first_contact}` : ''
     }`;
     
-    const current_domain = getCurrentProductionDomain();
-    let oauth_domain = deriv_urls.DERIV_HOST_NAME;
-    
-    // Use localhost directly for local development
-    if (current_domain === 'localhost') {
-        return `http://localhost:8443/oauth2/authorize?app_id=${app_id}&l=${language}${marketing_queries}&brand=${website_name.toLowerCase()}`;
-    }
-    
-    // Handle production domains
-    if (current_domain) {
-        const domain_suffix = current_domain.replace(/^[^.]+\./, '');
-        oauth_domain = domain_suffix;
-    }
-    
     // QA or staging server override
     if (server_url && /qa|staging/.test(server_url)) {
         return `https://${server_url}/oauth2/authorize?app_id=${app_id}&l=${language}${marketing_queries}&brand=${website_name.toLowerCase()}`;
     }
     
-    // Default OAuth URL
+    // For localhost
+    if (window.location.hostname === 'localhost') {
+        return `http://localhost:8443/oauth2/authorize?app_id=${app_id}&l=${language}${marketing_queries}&brand=${website_name.toLowerCase()}`;
+    }
+    
+    // Determine OAuth domain based on current hostname
+    let oauth_domain = 'deriv.com'; // Default to deriv.com
+    
+    const current_domain = getCurrentProductionDomain();
+    if (current_domain) {
+        // Only use custom domain if it's actually a deriv domain
+        if (current_domain.includes('deriv.')) {
+            const domain_suffix = current_domain.replace(/^[^.]+\./, '');
+            oauth_domain = domain_suffix;
+        }
+    }
+    
+    // Always use oauth.deriv.com (or oauth.deriv.be, oauth.deriv.me for custom domains)
     return `https://oauth.${oauth_domain}/oauth2/authorize?app_id=${app_id}&l=${language}${marketing_queries}&brand=${website_name.toLowerCase()}`;
 };
 
