@@ -171,6 +171,9 @@ export const generateOAuthURL = () => {
     const app_id = getAppId();
     const server_url = LocalStore.get('config.server_url');
     
+    // Get current redirect URI (where OAuth will send the user back)
+    const redirect_uri = encodeURIComponent(window.location.origin + '/');
+    
     // Get marketing cookies
     const signup_device_cookie = new (CookieStorage as any)('signup_device');
     const signup_device = signup_device_cookie.get('signup_device');
@@ -184,12 +187,12 @@ export const generateOAuthURL = () => {
     
     // QA or staging server override
     if (server_url && /qa|staging/.test(server_url)) {
-        return `https://${server_url}/oauth2/authorize?app_id=${app_id}&l=${language}${marketing_queries}&brand=${website_name.toLowerCase()}`;
+        return `https://${server_url}/oauth2/authorize?app_id=${app_id}&l=${language}${marketing_queries}&brand=${website_name.toLowerCase()}&redirect_uri=${redirect_uri}`;
     }
     
     // For localhost
     if (window.location.hostname === 'localhost') {
-        return `http://localhost:8443/oauth2/authorize?app_id=${app_id}&l=${language}${marketing_queries}&brand=${website_name.toLowerCase()}`;
+        return `http://localhost:8443/oauth2/authorize?app_id=${app_id}&l=${language}${marketing_queries}&brand=${website_name.toLowerCase()}&redirect_uri=${redirect_uri}`;
     }
     
     // Determine OAuth domain based on current hostname
@@ -205,7 +208,7 @@ export const generateOAuthURL = () => {
     }
     
     // Always use oauth.deriv.com (or oauth.deriv.be, oauth.deriv.me for custom domains)
-    return `https://oauth.${oauth_domain}/oauth2/authorize?app_id=${app_id}&l=${language}${marketing_queries}&brand=${website_name.toLowerCase()}`;
+    return `https://oauth.${oauth_domain}/oauth2/authorize?app_id=${app_id}&l=${language}${marketing_queries}&brand=${website_name.toLowerCase()}&redirect_uri=${redirect_uri}`;
 };
 
 export const generateSignupURL = () => {

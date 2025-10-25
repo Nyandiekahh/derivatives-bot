@@ -29,6 +29,9 @@ type TLoginUrl = {
 
 export const loginUrl = ({ language }: TLoginUrl) => {
     const server_url = LocalStore.get('config.server_url');
+    
+    // Get current redirect URI
+    const redirect_uri = encodeURIComponent(window.location.origin + '/');
 
     const signup_device_cookie = new (CookieStorage as any)('signup_device');
     const signup_device = signup_device_cookie.get('signup_device');
@@ -46,7 +49,7 @@ export const loginUrl = ({ language }: TLoginUrl) => {
 
         // Use localhost directly
         if (current_domain === 'localhost') {
-            return `http://localhost:8443/oauth2/authorize?app_id=${getAppId()}&l=${language}${marketing_queries}&brand=${website_name.toLowerCase()}`;
+            return `http://localhost:8443/oauth2/authorize?app_id=${getAppId()}&l=${language}${marketing_queries}&brand=${website_name.toLowerCase()}&redirect_uri=${redirect_uri}`;
         }
 
         if (current_domain) {
@@ -54,13 +57,13 @@ export const loginUrl = ({ language }: TLoginUrl) => {
             oauth_domain = domain_suffix;
         }
 
-        const url = `https://oauth.${oauth_domain}/oauth2/authorize?app_id=${getAppId()}&l=${language}${marketing_queries}&brand=${website_name.toLowerCase()}`;
+        const url = `https://oauth.${oauth_domain}/oauth2/authorize?app_id=${getAppId()}&l=${language}${marketing_queries}&brand=${website_name.toLowerCase()}&redirect_uri=${redirect_uri}`;
         return url;
     };
 
     // QA or staging server override
     if (server_url && /qa|staging/.test(server_url)) {
-        return `https://${server_url}/oauth2/authorize?app_id=${getAppId()}&l=${language}${marketing_queries}&brand=${website_name.toLowerCase()}`;
+        return `https://${server_url}/oauth2/authorize?app_id=${getAppId()}&l=${language}${marketing_queries}&brand=${website_name.toLowerCase()}&redirect_uri=${redirect_uri}`;
     }
 
     if (getAppId() === domain_app_ids[window.location.hostname as keyof typeof domain_app_ids]) {
