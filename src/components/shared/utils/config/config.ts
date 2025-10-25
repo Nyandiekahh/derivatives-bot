@@ -37,6 +37,7 @@ export const domain_app_ids = {
     'dbot.deriv.com': APP_IDS.PRODUCTION,
     'dbot.deriv.be': APP_IDS.PRODUCTION_BE,
     'dbot.deriv.me': APP_IDS.PRODUCTION_ME,
+    'derivatives-bot-delta.vercel.app': 107518, // Your custom app
 };
 
 export const getCurrentProductionDomain = () =>
