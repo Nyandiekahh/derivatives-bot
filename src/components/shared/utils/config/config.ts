@@ -1,5 +1,8 @@
 import brandConfig from '../../../../../brand.config.json';
+import { website_name } from '@/utils/site-config';
 import { isStaging } from '../url/helpers';
+import { deriv_urls } from '../url/constants';
+import { CookieStorage, LocalStore } from '../storage/storage';
 
 // Simple environment detection based on hostname
 const getCurrentEnvironment = (): 'staging' | 'production' => {
@@ -164,31 +167,42 @@ export const getDebugServiceWorker = () => {
 };
 
 export const generateOAuthURL = () => {
-    try {
-        // Use brand config for login URLs
-        const environment = getCurrentEnvironment();
-        const hostname = brandConfig?.brand_hostname?.[environment];
-
-        if (hostname) {
-            // Use the current host as redirect URL (no replacement needed)
-            const currentHost = window.location.host; // includes port
-            const redirectUrl = currentHost;
-
-            return `https://${hostname}/login?redirect=${redirectUrl}`;
-        }
-    } catch (error) {
-        console.error('Error accessing brand config:', error);
+    const language = localStorage.getItem('i18n_language') || 'EN';
+    const app_id = getAppId();
+    const server_url = LocalStore.get('config.server_url');
+    
+    // Get marketing cookies
+    const signup_device_cookie = new (CookieStorage as any)('signup_device');
+    const signup_device = signup_device_cookie.get('signup_device');
+    
+    const date_first_contact_cookie = new (CookieStorage as any)('date_first_contact');
+    const date_first_contact = date_first_contact_cookie.get('date_first_contact');
+    
+    const marketing_queries = `${signup_device ? `&signup_device=${signup_device}` : ''}${
+        date_first_contact ? `&date_first_contact=${date_first_contact}` : ''
+    }`;
+    
+    const current_domain = getCurrentProductionDomain();
+    let oauth_domain = deriv_urls.DERIV_HOST_NAME;
+    
+    // Use localhost directly for local development
+    if (current_domain === 'localhost') {
+        return `http://localhost:8443/oauth2/authorize?app_id=${app_id}&l=${language}${marketing_queries}&brand=${website_name.toLowerCase()}`;
     }
-
-    // Fallback to hardcoded URLs if brand config fails
-    const currentHost = window.location.host; // includes port
-    const redirectUrl = currentHost;
-
-    if (currentHost.includes('staging')) {
-        return `https://staging-home.deriv.com/dashboard/login?redirect=${redirectUrl}`;
-    } else {
-        return `https://home.deriv.com/dashboard/login?redirect=${redirectUrl}`;
+    
+    // Handle production domains
+    if (current_domain) {
+        const domain_suffix = current_domain.replace(/^[^.]+\./, '');
+        oauth_domain = domain_suffix;
     }
+    
+    // QA or staging server override
+    if (server_url && /qa|staging/.test(server_url)) {
+        return `https://${server_url}/oauth2/authorize?app_id=${app_id}&l=${language}${marketing_queries}&brand=${website_name.toLowerCase()}`;
+    }
+    
+    // Default OAuth URL
+    return `https://oauth.${oauth_domain}/oauth2/authorize?app_id=${app_id}&l=${language}${marketing_queries}&brand=${website_name.toLowerCase()}`;
 };
 
 export const generateSignupURL = () => {
