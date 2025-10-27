@@ -1,10 +1,9 @@
 import brandConfig from '../../../../../brand.config.json';
 import { website_name } from '@/utils/site-config';
 import { isStaging } from '../url/helpers';
-import { deriv_urls } from '../url/constants';
 import { CookieStorage, LocalStore } from '../storage/storage';
 
-// Simple environment detection based on hostname
+// Environment detection
 const getCurrentEnvironment = (): 'staging' | 'production' => {
     try {
         const hostname = window.location.hostname;
@@ -14,10 +13,11 @@ const getCurrentEnvironment = (): 'staging' | 'production' => {
         return 'production';
     } catch (error) {
         console.error('Error detecting environment:', error);
-        return 'production'; // Safe fallback
+        return 'production';
     }
 };
 
+// App IDs
 export const APP_IDS = {
     LOCALHOST: 36300,
     TMP_STAGING: 64584,
@@ -29,9 +29,7 @@ export const APP_IDS = {
     PRODUCTION_ME: 65557,
 };
 
-export const livechat_license_id = 12049137;
-export const livechat_client_id = '66aa088aad5a414484c1fd1fa8a5ace7';
-
+// Domain → App ID mapping
 export const domain_app_ids = {
     'master.bot-standalone.pages.dev': APP_IDS.TMP_STAGING,
     'staging-dbot.deriv.com': APP_IDS.STAGING,
@@ -43,6 +41,7 @@ export const domain_app_ids = {
     'derivatives-bot-delta.vercel.app': 107518, // Your custom app
 };
 
+// Determine current production domain
 export const getCurrentProductionDomain = () =>
     !/^staging\./.test(window.location.hostname) &&
     Object.keys(domain_app_ids).find(domain => window.location.hostname === domain);
@@ -52,28 +51,24 @@ export const isProduction = () => {
     return new RegExp(`^(${all_domains.join('|')})$`, 'i').test(window.location.hostname);
 };
 
-export const isTestLink = () => {
-    return (
-        window.location.origin?.includes('.binary.sx') ||
-        window.location.origin?.includes('bot-65f.pages.dev') ||
-        isLocal()
-    );
-};
+export const isTestLink = () => (
+    window.location.origin?.includes('.binary.sx') ||
+    window.location.origin?.includes('bot-65f.pages.dev') ||
+    isLocal()
+);
 
 export const isLocal = () => /localhost(:\d+)?$/i.test(window.location.hostname);
 
+// Server URL selection
 const getDefaultServerURL = () => {
     try {
-        // Check for account_type in URL params first (this overrides everything)
         const urlParams = new URLSearchParams(window.location.search);
         const urlAccountType = urlParams.get('account_type');
 
         if (urlAccountType) {
-            // Use realv2 for real accounts, demov2 for demo accounts
             return urlAccountType === 'demo' ? 'demov2.derivws.com' : 'realv2.derivws.com';
         }
 
-        // Check localStorage for saved account type
         const savedAccountType = localStorage.getItem('account_type');
         if (savedAccountType) {
             return savedAccountType === 'demo' ? 'demov2.derivws.com' : 'realv2.derivws.com';
@@ -81,11 +76,10 @@ const getDefaultServerURL = () => {
     } catch (error) {
         console.error('Error in getDefaultServerURL:', error);
     }
-
-    // Always default to demo server if no account_type is specified or if there's an error
     return 'demov2.derivws.com';
 };
 
+// Get App ID and server URL
 export const getDefaultAppIdAndUrl = () => {
     const server_url = getDefaultServerURL();
 
@@ -100,136 +94,51 @@ export const getDefaultAppIdAndUrl = () => {
 };
 
 export const getAppId = () => {
-    let app_id = null;
     const config_app_id = window.localStorage.getItem('config.app_id');
     const current_domain = getCurrentProductionDomain() ?? '';
 
-    if (config_app_id) {
-        app_id = config_app_id;
-    } else if (isStaging()) {
-        app_id = APP_IDS.STAGING;
-    } else if (isTestLink()) {
-        app_id = APP_IDS.LOCALHOST;
-    } else {
-        app_id = domain_app_ids[current_domain as keyof typeof domain_app_ids] ?? APP_IDS.PRODUCTION;
-    }
+    if (config_app_id) return Number(config_app_id);
+    if (isStaging()) return APP_IDS.STAGING;
+    if (isTestLink()) return APP_IDS.LOCALHOST;
 
-    return app_id;
+    return domain_app_ids[current_domain as keyof typeof domain_app_ids] ?? APP_IDS.PRODUCTION;
 };
 
 export const getSocketURL = () => {
     const local_storage_server_url = window.localStorage.getItem('config.server_url');
-
-    if (local_storage_server_url) {
-        return local_storage_server_url;
-    }
-
-    const server_url = getDefaultServerURL();
-
-    return server_url;
+    return local_storage_server_url || getDefaultServerURL();
 };
 
-export const checkAndSetEndpointFromUrl = () => {
-    if (isTestLink()) {
-        const url_params = new URLSearchParams(location.search.slice(1));
-
-        if (url_params.has('qa_server') && url_params.has('app_id')) {
-            const qa_server = url_params.get('qa_server') || '';
-            const app_id = url_params.get('app_id') || '';
-
-            url_params.delete('qa_server');
-            url_params.delete('app_id');
-
-            if (/^(^(www\.)?qa[0-9]{1,4}\.deriv.dev|(.*)\.derivws\.com)$/.test(qa_server) && /^[0-9]+$/.test(app_id)) {
-                localStorage.setItem('config.app_id', app_id);
-                localStorage.setItem('config.server_url', qa_server.replace(/"/g, ''));
-            }
-
-            const params = url_params.toString();
-            const hash = location.hash;
-
-            location.href = `${location.protocol}//${location.hostname}${location.pathname}${
-                params ? `?${params}` : ''
-            }${hash || ''}`;
-
-            return true;
-        }
-    }
-
-    return false;
-};
-
-export const getDebugServiceWorker = () => {
-    const debug_service_worker_flag = window.localStorage.getItem('debug_service_worker');
-    if (debug_service_worker_flag) return !!parseInt(debug_service_worker_flag);
-
-    return false;
-};
-
+// OAuth URL generator
 export const generateOAuthURL = () => {
-    const language = localStorage.getItem('i18n_language') || 'EN';
+    // Ensure language code has no quotes
+    const language = (localStorage.getItem('i18n_language') || 'EN').replace(/"/g, '');
     const app_id = getAppId();
-    const server_url = LocalStore.get('config.server_url');
-    
-    // Get current redirect URI (where OAuth will send the user back)
     const redirect_uri = encodeURIComponent(window.location.origin + '/');
-    
-    // Get marketing cookies
-    const signup_device_cookie = new (CookieStorage as any)('signup_device');
-    const signup_device = signup_device_cookie.get('signup_device');
-    
-    const date_first_contact_cookie = new (CookieStorage as any)('date_first_contact');
-    const date_first_contact = date_first_contact_cookie.get('date_first_contact');
-    
+
+    // Marketing cookies
+    const signup_device = new CookieStorage('signup_device').get('signup_device');
+    const date_first_contact = new CookieStorage('date_first_contact').get('date_first_contact');
+
     const marketing_queries = `${signup_device ? `&signup_device=${signup_device}` : ''}${
         date_first_contact ? `&date_first_contact=${date_first_contact}` : ''
     }`;
-    
-    // QA or staging server override
-    if (server_url && /qa|staging/.test(server_url)) {
-        return `https://${server_url}/oauth2/authorize?app_id=${app_id}&l=${language}${marketing_queries}&brand=${website_name.toLowerCase()}&redirect_uri=${redirect_uri}`;
-    }
-    
-    // For localhost
-    if (window.location.hostname === 'localhost') {
-        return `http://localhost:8443/oauth2/authorize?app_id=${app_id}&l=${language}${marketing_queries}&brand=${website_name.toLowerCase()}&redirect_uri=${redirect_uri}`;
-    }
-    
-    // Determine OAuth domain based on current hostname
-    let oauth_domain = 'deriv.com'; // Default to deriv.com
-    
-    const current_domain = getCurrentProductionDomain();
-    if (current_domain) {
-        // Only use custom domain if it's actually a deriv domain
-        if (current_domain.includes('deriv.')) {
-            const domain_suffix = current_domain.replace(/^[^.]+\./, '');
-            oauth_domain = domain_suffix;
-        }
-    }
-    
-    // Always use oauth.deriv.com (or oauth.deriv.be, oauth.deriv.me for custom domains)
-    return `https://oauth.${oauth_domain}/oauth2/authorize?app_id=${app_id}&l=${language}${marketing_queries}&brand=${website_name.toLowerCase()}&redirect_uri=${redirect_uri}`;
+
+    // Always use official Deriv OAuth server
+    return `https://oauth.deriv.com/oauth2/authorize?app_id=${app_id}&l=${language}${marketing_queries}&brand=${website_name.toLowerCase()}&redirect_uri=${redirect_uri}`;
 };
 
+// Signup URL generator
 export const generateSignupURL = () => {
     try {
-        // Use brand config for signup URLs
         const environment = getCurrentEnvironment();
         const hostname = brandConfig?.brand_hostname?.[environment];
-
-        if (hostname) {
-            return `https://${hostname}/signup`;
-        }
+        if (hostname) return `https://${hostname}/signup`;
     } catch (error) {
         console.error('Error accessing brand config:', error);
     }
 
-    // Fallback to hardcoded URLs if brand config fails
-    const currentHost = window.location.host; // includes port
-
-    if (currentHost.includes('staging')) {
-        return 'https://staging-home.deriv.com/dashboard/signup';
-    } else {
-        return 'https://home.deriv.com/dashboard/signup';
-    }
+    return window.location.host.includes('staging')
+        ? 'https://staging-home.deriv.com/dashboard/signup'
+        : 'https://home.deriv.com/dashboard/signup';
 };
